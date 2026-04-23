@@ -11,7 +11,7 @@ To list GraphRunner modules run List-GraphRunnerModules
 "
 
 
-function Get-GraphTokens{
+function Get-GraphTokens {
     <#
         .SYNOPSIS
         Get-GraphTokens is the main user authentication module for GraphRunner. Upon authenticating it will store your tokens in the global $tokens variable as well as the tenant ID in $tenantid. To use them with other GraphRunner modules use the Tokens flag (Example. Invoke-DumpApps -Tokens $tokens)
@@ -21,35 +21,29 @@ function Get-GraphTokens{
         Optional Dependencies: None
 
     .DESCRIPTION
-
        Get-GraphTokens is the main user authentication module for GraphRunner. Upon authenticating it will store your tokens in the global $tokens variable as well as the tenant ID in $tenantid. To use them with other GraphRunner modules use the Tokens flag (Example. Invoke-DumpApps -Tokens $tokens)     
     
     .PARAMETER UserPasswordAuth
-        
         Provide a username and password for authentication instead of using a device code auth.
     
     .PARAMETER Client
-        
         Provide a Client to authenticate to. Use Custom to provide your own ClientID.
 
     .PARAMETER ClientID
-        
         Provide a ClientID to use with the Custom client option.
 
     .PARAMETER Resource
-
         Provide a resource to authenticate to such as https://graph.microsoft.com/
 
     .PARAMETER Device
-        
         Provide a device type to use such as Windows or Android.
 
     .PARAMETER Browser
-        
         Provide a Browser to spoof.
-    
-
-
+		
+	.PARAMETER CustomUserAgent
+    	Provide a custom User Agent to abuse MFA enablement gaps.
+		
     .EXAMPLE
         
         C:\PS> Get-GraphTokens
@@ -75,7 +69,9 @@ function Get-GraphTokens{
     [String]$Device,
     [Parameter(Position = 6,Mandatory=$False)]
     [ValidateSet('Android','IE','Chrome','Firefox','Edge','Safari')]
-    [String]$Browser
+    [String]$Browser,
+	[Parameter(Position = 7, Mandatory = $False)]
+	[String]$CustomUserAgent
     )
     if ($Device) {
 		if ($Browser) {
@@ -93,7 +89,12 @@ function Get-GraphTokens{
 			$UserAgent = Invoke-ForgeUserAgent
 	   }
 	}
-    if($UserPasswordAuth){
+
+	if ($CustomUserAgent) {
+		$UserAgent = $CustomUserAgent
+	}
+	
+    if($UserPasswordAuth) {
         Write-Host -ForegroundColor Yellow "[*] Initiating the User/Password authentication flow"
         $username = Read-Host -Prompt "Enter username"
         $password = Read-Host -Prompt "Enter password" -AsSecureString
@@ -109,7 +110,7 @@ function Get-GraphTokens{
         $body = "grant_type=password&password=$passwordText&client_id=$ClientID&username=$username&resource=$Resource&client_info=1&scope=openid"
 
 
-        try{
+        try {
             Write-Host -ForegroundColor Yellow "[*] Trying to authenticate with the provided credentials"
             $tokens = Invoke-RestMethod -Uri $url -Method Post -Headers $headers -Body $body
 
@@ -132,15 +133,15 @@ function Get-GraphTokens{
             Write-Output $details.error
         }
         $global:tokens = $tokens
-        if($ExternalCall){
+        if($ExternalCall) {
             return $tokens
         }
     
     }
     else{
-        If($tokens){
+        If($tokens) {
             $newtokens = $null
-            while($newtokens -notlike "Yes"){
+            while($newtokens -notlike "Yes") {
                 Write-Host -ForegroundColor cyan "[*] It looks like you already tokens set in your `$tokens variable. Are you sure you want to authenticate again?"
                 $answer = Read-Host 
                 $answer = $answer.ToLower()
@@ -161,7 +162,7 @@ function Get-GraphTokens{
             "client_id" =     $ClientID
             "resource" =      $Resource
         }
-        $Headers=@{}
+        $Headers = @{}
         $Headers["User-Agent"] = $UserAgent
         $authResponse = Invoke-RestMethod `
             -UseBasicParsing `
@@ -206,16 +207,16 @@ function Get-GraphTokens{
 
             if ($continue) {
                 Start-Sleep -Seconds 3
-            }
-            else{
+            } else {
                 $global:tokens = $tokens
-                if($ExternalCall){
+                if($ExternalCall) {
                     return $tokens
                 }
             }
         }
     }
 }
+
 function Invoke-AutoTokenRefresh{
     <#
         .SYNOPSIS
